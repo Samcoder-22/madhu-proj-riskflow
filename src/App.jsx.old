@@ -1,0 +1,145 @@
+import { useEffect, useState } from "react";
+import "./index.css";
+
+const nodes = [
+  { id: "address", label: "Property Address", x: 50, y: 150 },
+  { id: "imagery", label: "Imagery API", x: 250, y: 150 },
+  { id: "frontRoof", label: "Front & Roof Images", x: 450, y: 80 },
+  { id: "proximity", label: "Proximity Analysis", x: 450, y: 220 },
+  { id: "riskEngine", label: "Risk Engine", x: 700, y: 150 },
+];
+
+const edges = [
+  { id: "a-i", from: "address", to: "imagery" },
+  { id: "i-fr", from: "imagery", to: "frontRoof" },
+  { id: "i-pr", from: "imagery", to: "proximity" },
+  { id: "fr-re", from: "frontRoof", to: "riskEngine" },
+  { id: "pr-re", from: "proximity", to: "riskEngine" },
+];
+
+const steps = [
+  { text: "Receiving property address...", showNode: ["address"] },
+  { text: "Fetching geospatial imagery...", showNode: ["imagery"], activateEdge: ["a-i"] },
+  { text: "Splitting into image and proximity analysis...", showNode: ["frontRoof", "proximity"], activateEdge: ["i-fr", "i-pr"] },
+  { text: "Processing risk signals...", showNode: ["riskEngine"], activateEdge: ["fr-re", "pr-re"] },
+  { text: "Calculating underwriting propensity...", },
+  { text: "Finalizing risk evaluation..." }
+];
+
+function getNode(id) {
+  return nodes.find(n => n.id === id);
+}
+
+function generateCurve(from, to) {
+  const startX = from.x + 120;
+  const startY = from.y + 25;
+  const endX = to.x;
+  const endY = to.y + 25;
+  const controlX = (startX + endX) / 2;
+
+  return `M ${startX} ${startY}
+          C ${controlX} ${startY},
+            ${controlX} ${endY},
+            ${endX} ${endY}`;
+}
+
+export default function App() {
+  const [visibleNodes, setVisibleNodes] = useState([]);
+  const [edgeProgress, setEdgeProgress] = useState({});
+  const [displayText, setDisplayText] = useState("");
+
+  useEffect(() => {
+    runSteps();
+  }, []);
+
+  const typeText = (text) => {
+    return new Promise((resolve) => {
+      let i = 0;
+      setDisplayText("");
+      const interval = setInterval(() => {
+        setDisplayText(text.slice(0, i));
+        i++;
+        if (i > text.length) {
+          clearInterval(interval);
+          setTimeout(resolve, 800);
+        }
+      }, 25);
+    });
+  };
+
+  const animateEdge = (edgeId) => {
+    return new Promise((resolve) => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 5;
+        setEdgeProgress(prev => ({
+          ...prev,
+          [edgeId]: progress
+        }));
+        if (progress >= 100) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 20);
+    });
+  };
+
+  const runSteps = async () => {
+    for (let step of steps) {
+      await typeText(step.text);
+
+      if (step.showNode) {
+        setVisibleNodes(prev => [...prev, ...step.showNode]);
+      }
+
+      if (step.activateEdge) {
+        await Promise.all(step.activateEdge.map(e => animateEdge(e)));
+      }
+    }
+  };
+
+  return (
+    <div className="container">
+      <div className="stream-text">{displayText}</div>
+
+      <svg className="edges">
+        {edges.map(edge => {
+          if (!visibleNodes.includes(edge.from) || !visibleNodes.includes(edge.to)) return null;
+
+          const from = getNode(edge.from);
+          const to = getNode(edge.to);
+          const progress = edgeProgress[edge.id] || 0;
+          const path = generateCurve(from, to);
+
+          return (
+            <g key={edge.id}>
+              <path d={path} className="path-base" />
+              <path
+                d={path}
+                className="path-progress"
+                style={{
+                  strokeDasharray: 400,
+                  strokeDashoffset: 400 - (400 * progress) / 100,
+                }}
+              />
+            </g>
+          );
+        })}
+      </svg>
+
+      {nodes.map(node => (
+        visibleNodes.includes(node.id) && (
+          <div
+            key={node.id}
+            className="node fade-in"
+            style={{ left: node.x, top: node.y }}
+          >
+            {node.label}
+          </div>
+        )
+      ))}
+    </div>
+  );
+}
+
+
